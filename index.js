@@ -21,21 +21,27 @@ app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.post("/encode", async (req, res) => {
-  await swftboxUrl.create({
-    host: req.headers.host,
+  const data = await swftboxUrl.create({
+    host: req.body.host,
     fullUrl: req.body.fullUrl,
   });
-  res.redirect("/");
+  res.json({ shortUrl: `${data.host}${data.shortUrl}` });
+  //res.redirect("/");
 });
 
 app.get("/", async (req, res) => {
-  const encodedUrls = await swftboxUrl.find();
+  const encodedUrls = await swftboxUrl.find({}).select("shortUrl");
   res.json(encodedUrls);
 });
 
-app.get("/decode", async (req, res) => {
+app.post("/decode", async (req, res) => {
+  let urlWithoutHost = req.body.encodedurl.replace(
+    /^[a-zA-Z]{3,5}\:\/{2}[a-zA-Z0-9_.:-]+\//,
+    ""
+  );
+
   const decodedUrl = await swftboxUrl.findOne({
-    shortUrl: req.body.encodedurl,
+    shortUrl: urlWithoutHost,
   });
 
   if (decodedUrl === null) return res.sendStatus(404);
@@ -43,7 +49,10 @@ app.get("/decode", async (req, res) => {
   decodedUrl.clicksCounter++;
   decodedUrl.save();
 
-  res.redirect(decodedUrl.fullUrl);
+  res.json({
+    fullUrl: decodedUrl.fullUrl,
+    clicksCounter: decodedUrl.clicksCounter,
+  });
 });
 
 app.get("/statistics/:url", async (req, res) => {
